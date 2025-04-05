@@ -12,12 +12,14 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from agents.prompts import BLOG_CREATOR_PROMPT
+from blog_agents.prompts import BLOG_CREATOR_PROMPT
+import requests
+from bs4 import BeautifulSoup
+from collections import Counter
+import re
 
 class BlogPostCreator:
-    def __init__(self, keyword, number_of_web_references):
-        self.keyword = keyword
-        self.number_of_web_references = number_of_web_references
+    def __init__(self):
         self.llm = ChatOpenAI(model="gpt-4o")
 
     def parse_links(self, search_results: str):
@@ -36,14 +38,14 @@ class BlogPostCreator:
             f.write(content)
         print(f" 🥳 File saved as {filepath}")
 
-    def get_links(self):
+    def get_links(self, topic, web_references):
         try:
             print("-----------------------------------")
             print("Getting links ...")
 
-            wrapper = DuckDuckGoSearchAPIWrapper(max_results=self.number_of_web_references)
+            wrapper = DuckDuckGoSearchAPIWrapper(max_results=web_references)
             search = DuckDuckGoSearchResults(api_wrapper=wrapper)
-            results = search.run(tool_input=self.keyword)
+            results = search.run(tool_input=topic)
 
             links = []
             for link in self.parse_links(results):
@@ -54,13 +56,12 @@ class BlogPostCreator:
         except Exception as e:
             print(f"An error occurred while getting links: {e}")
 
-    def create_blog_post(self):
+    def create_blog_post(self, topic: str, web_references: int):
         try:
             print("-----------------------------------")
             print("Creating blog post ...")
 
             # Define self and docs variables
-            self = BlogPostCreator(keyword=self.keyword, number_of_web_references=self.number_of_web_references)
             docs = []
 
             # Define splitter variable
@@ -74,7 +75,7 @@ class BlogPostCreator:
             bs4_strainer = bs4.SoupStrainer(('p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'))
 
             document_loader = WebBaseLoader(
-                web_path=(self.get_links())
+                web_path=(self.get_links(topic, web_references))
             )
 
             docs = document_loader.load()
@@ -96,13 +97,56 @@ class BlogPostCreator:
                 return "\n\n".join(doc.page_content for doc in docs)
 
             chain = (
-                    {"context": retriever | format_docs, "keyword": RunnablePassthrough()}
+                    {"context": retriever | format_docs, "topic": RunnablePassthrough()}
                     | prompt
                     | self.llm
                     | StrOutputParser()
             )
 
-            return chain.invoke(input=self.keyword)
+            return chain.invoke(input=topic)
 
         except Exception as e:
             return e
+
+    def adapt_blog_post(self, original_post: str, user_query: str) -> str:
+        """
+        Adapt the blog post based on the user's query.
+        
+        :param original_post: The original blog post content.
+        :param user_query: The user's query for adaptation.
+        :return: The adapted blog post.
+        """
+        try:
+            # Create a prompt for adapting the blog post
+            prompt = f"Adapt the following blog post based on the user's query:\n\nOriginal Post:\n{original_post}\n\nUser Query:\n{user_query}\n\nAdapted Post:"
+            
+            
+            chain = (self.llm | StrOutputParser())
+
+            return chain.invoke(input=prompt)
+        except Exception as e:
+            return f"An error occurred during adaptation: {e}"
+
+    def recommend_topics(self, website_url: str) -> str:
+        """
+        Recommend blog topics based on the website content.
+        
+        :param website_content: The text content extracted from the user's website.
+        :return: A string of recommended blog topics.
+        """
+        try:
+            response = requests.get(website_url)
+            soup = BeautifulSoup(response.content, 'html.parser')
+
+            # Extract text content from the website
+            website_content = ' '.join(soup.stripped_strings)
+            print(website_content)
+            # Create a prompt for recommending topics
+            prompt = f"Based on the following website content, suggest some blog topics:\n\n{website_content}\n\nRecommended Topics:"
+            
+            # Use the language model to generate recommended topics
+            chain = (self.llm | StrOutputParser())
+
+            return chain.invoke(input=prompt)
+        except Exception as e:
+            return f"An error occurred while recommending topics: {e}"

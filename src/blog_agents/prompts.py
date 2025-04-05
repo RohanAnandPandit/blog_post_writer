@@ -1,6 +1,7 @@
 BLOG_CREATOR_PROMPT = """
-     Given the following information, generate a blog post                   
-    Write a full blog post that will rank for the following keywords: {keyword}                 
+    Given the following information, generate a blog post.
+    Use UK English.
+    Write a full blog post that will rank for the following topic: {topic}                 
                     
     Instructions:
     The blog should be properly and beautifully formatted using markdown.
