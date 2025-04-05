@@ -9,3 +9,5 @@ venv/
 *.pyc
 blogs/
 .idea/
+
+.streamlit/secrets.toml
