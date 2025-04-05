@@ -1,4 +1,4 @@
-from src.blog_agents.blog_generator import blog_generator_agent
+from blog_agents.blog_generator import blog_generator_agent
 import streamlit as st
 import os
 from blog_agents.blogpostcreator import BlogPostCreator
