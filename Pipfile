@@ -12,6 +12,9 @@ langgraph = "*"
 langchain-openai = "*"
 duckduckgo-search = "*"
 faiss-cpu = "*"
+openai = "*"
+openai-agents = "*"
+firecrawl-py = "*"
 
 [dev-packages]
 
